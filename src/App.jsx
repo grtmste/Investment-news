@@ -101,6 +101,7 @@ export default function App() {
           <WatchlistPanel
             watchlist={watchlist}
             prices={prices}
+            priceLoading={priceLoading}
             getSparkline={getSparkline}
             addToWatchlist={addToWatchlist}
             removeFromWatchlist={removeFromWatchlist}

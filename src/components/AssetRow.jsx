@@ -15,11 +15,12 @@ function formatChange(change) {
   return `${sign}${change.toFixed(2)}%`;
 }
 
-export default function AssetRow({ asset, priceData, sparklineData, onRemove }) {
+export default function AssetRow({ asset, priceData, sparklineData, onRemove, globalLoading }) {
   const { symbol, type } = asset;
   const positive = (priceData?.change24h ?? 0) >= 0;
   const changeColor = priceData ? (positive ? '#3fb950' : '#f85149') : '#6e7681';
   const hasData = Boolean(priceData?.price);
+  const showLoading = globalLoading && !hasData;
 
   return (
     <div
@@ -62,9 +63,12 @@ export default function AssetRow({ asset, priceData, sparklineData, onRemove }) 
       {/* Price & change */}
       <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 80 }}>
         <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, color: '#e6edf3' }}>
-          {hasData ? formatPrice(priceData.price) : (
-            <span style={{ color: '#6e7681', fontSize: 11 }}>loading…</span>
-          )}
+          {hasData
+            ? formatPrice(priceData.price)
+            : showLoading
+            ? <span style={{ color: '#6e7681', fontSize: 11 }}>loading…</span>
+            : <span style={{ color: '#6e7681', fontSize: 11 }}>N/A</span>
+          }
         </div>
         <div style={{ fontFamily: 'monospace', fontSize: 11, color: changeColor }}>
           {hasData ? formatChange(priceData.change24h) : '—'}

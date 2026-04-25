@@ -3,7 +3,7 @@ import AssetRow from './AssetRow';
 import { searchCrypto, isCryptoSymbol } from '../utils/cryptoApi';
 import { searchStock } from '../utils/stockApi';
 
-export default function WatchlistPanel({ watchlist, prices, getSparkline, addToWatchlist, removeFromWatchlist, lastUpdated }) {
+export default function WatchlistPanel({ watchlist, prices, priceLoading, getSparkline, addToWatchlist, removeFromWatchlist, lastUpdated }) {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
@@ -144,6 +144,7 @@ export default function WatchlistPanel({ watchlist, prices, getSparkline, addToW
                 priceData={prices[asset.symbol]}
                 sparklineData={getSparkline(asset.symbol, asset.type)}
                 onRemove={removeFromWatchlist}
+                globalLoading={priceLoading}
               />
             ))}
           </div>
@@ -162,6 +163,7 @@ export default function WatchlistPanel({ watchlist, prices, getSparkline, addToW
                 priceData={prices[asset.symbol]}
                 sparklineData={getSparkline(asset.symbol, asset.type)}
                 onRemove={removeFromWatchlist}
+                globalLoading={priceLoading}
               />
             ))}
           </div>
