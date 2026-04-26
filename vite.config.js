@@ -114,6 +114,57 @@ const devServerPlugin = {
         }
       }
 
+      // ── /api/og?url=ARTICLE_URL ────────────────────────────────────────────
+      if (pathname === '/api/og') {
+        const targetUrl = new URL(req.url, 'http://localhost').searchParams.get('url');
+        if (!targetUrl) { res.statusCode = 400; return res.end(JSON.stringify({ image: null })); }
+
+        try {
+          const r = await fetch(targetUrl, {
+            headers: {
+              'User-Agent': UA,
+              Accept: 'text/html,application/xhtml+xml,*/*;q=0.9',
+              'Accept-Language': 'en-US,en;q=0.9',
+            },
+            redirect: 'follow',
+            signal: AbortSignal.timeout(7000),
+          });
+
+          let html = '';
+          if (r.ok) {
+            const reader = r.body.getReader();
+            let bytes = 0;
+            while (bytes < 80_000) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              html += new TextDecoder().decode(value);
+              bytes += value.length;
+            }
+            reader.cancel().catch(() => {});
+          }
+
+          const patterns = [
+            /<meta[^>]+property=["']og:image(?::url)?["'][^>]+content=["']([^"']+)["']/i,
+            /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::url)?["']/i,
+            /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["']/i,
+            /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image(?::src)?["']/i,
+          ];
+          let image = null;
+          for (const re of patterns) {
+            const m = html.match(re);
+            if (m?.[1] && !m[1].startsWith('data:')) { image = m[1].trim(); break; }
+          }
+
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({ image }));
+        } catch {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({ image: null }));
+        }
+      }
+
       next();
     });
   },

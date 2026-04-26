@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { timeAgo } from '../utils/newsApi';
+import { getOgImage } from '../utils/ogImageCache';
 
 const CATEGORY = {
   stocks: { label: 'Stocks', color: '#4E9EF5', bg: 'rgba(78,158,245,0.15)' },
@@ -7,42 +8,48 @@ const CATEGORY = {
   ark:    { label: 'ARK',    color: 'var(--gold)',  bg: 'var(--gold-glow)' },
 };
 
-const PLACEHOLDER_GRADIENTS = {
+const PLACEHOLDER_BG = {
   stocks: 'linear-gradient(135deg, #0D1B2A 0%, #1B2A3B 100%)',
   crypto: 'linear-gradient(135deg, #0A1F14 0%, #112B1C 100%)',
   ark:    'linear-gradient(135deg, #1A1200 0%, #2A1E00 100%)',
 };
 
 export default function NewsCard({ article }) {
-  const [imgFailed, setImgFailed] = useState(false);
-  const cat = CATEGORY[article.category] || CATEGORY.stocks;
-  const ago = timeAgo(article.publishedAt);
-  const showImage = article.thumbnail && !imgFailed;
-  const placeholderBg = PLACEHOLDER_GRADIENTS[article.category] || PLACEHOLDER_GRADIENTS.stocks;
+  const [thumb, setThumb]       = useState(article.thumbnail || null);
+  const [imgFailed, setFailed]  = useState(false);
+  const [ogFetched, setOgFetched] = useState(false);
+
+  // Fetch og:image when RSS provided no thumbnail
+  useEffect(() => {
+    if (thumb || ogFetched || !article.url) return;
+    let alive = true;
+    setOgFetched(true);
+    getOgImage(article.url).then(img => {
+      if (alive && img) setThumb(img);
+    });
+    return () => { alive = false; };
+  }, [article.url, thumb, ogFetched]);
+
+  const cat     = CATEGORY[article.category] || CATEGORY.stocks;
+  const ago     = timeAgo(article.publishedAt);
+  const showImg = thumb && !imgFailed;
+  const placeholderBg = PLACEHOLDER_BG[article.category] || PLACEHOLDER_BG.stocks;
 
   return (
     <a href={article.url} target="_blank" rel="noopener noreferrer" className="news-card">
       {/* Image area */}
-      <div style={{ position: 'relative', height: 148, overflow: 'hidden', flexShrink: 0 }}>
-        {showImage ? (
+      <div style={{ position: 'relative', height: 148, overflow: 'hidden', flexShrink: 0, background: placeholderBg }}>
+        {showImg ? (
           <img
-            src={article.thumbnail}
+            src={thumb}
             alt=""
-            onError={() => setImgFailed(true)}
-            style={{
-              width: '100%', height: '100%',
-              objectFit: 'cover',
-              display: 'block',
-              transition: 'transform 0.3s ease',
-            }}
+            onError={() => setFailed(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'opacity 0.3s ease' }}
           />
         ) : (
-          /* Styled placeholder */
           <div style={{
-            width: '100%', height: '100%',
-            background: placeholderBg,
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center', gap: 6,
+            width: '100%', height: '100%', display: 'flex',
+            flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
           }}>
             <div style={{
               width: 40, height: 40, borderRadius: '50%',
@@ -58,11 +65,14 @@ export default function NewsCard({ article }) {
             </span>
           </div>
         )}
-        {/* Gradient overlay on image */}
+
+        {/* Gradient overlay */}
         <div style={{
           position: 'absolute', inset: 0,
           background: 'linear-gradient(to top, rgba(13,17,23,0.85) 0%, transparent 55%)',
+          pointerEvents: 'none',
         }} />
+
         {/* Category badge */}
         <span style={{
           position: 'absolute', top: 10, left: 10,
@@ -86,26 +96,19 @@ export default function NewsCard({ article }) {
 
         <div style={{
           fontSize: 13, fontWeight: 700,
-          color: 'var(--text-primary)',
-          lineHeight: 1.45,
+          color: 'var(--text-primary)', lineHeight: 1.45,
           marginBottom: article.summary ? 8 : 0,
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
+          display: '-webkit-box', WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>
           {article.title}
         </div>
 
         {article.summary && (
           <div style={{
-            fontSize: 11.5,
-            color: 'var(--text-secondary)',
-            lineHeight: 1.55,
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
+            fontSize: 11.5, color: 'var(--text-secondary)', lineHeight: 1.55,
+            display: '-webkit-box', WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {article.summary}
           </div>
