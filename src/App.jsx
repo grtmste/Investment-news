@@ -19,7 +19,6 @@ export default function App() {
     watchlist,
     prices,
     priceLoading,
-    priceError,
     lastUpdated: priceLastUpdated,
     addToWatchlist,
     removeFromWatchlist,
@@ -27,7 +26,6 @@ export default function App() {
     refresh: refreshPrices,
   } = usePrices();
 
-  // Refresh clock in TopBar
   const [, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 30000);
@@ -35,58 +33,17 @@ export default function App() {
   }, []);
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        overflow: 'hidden',
-        background: '#0d1117',
-      }}
-    >
-      {/* Top bar */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: 'var(--bg-base)' }}>
       <TopBar
         onRefreshNews={refreshNews}
         onRefreshPrices={refreshPrices}
         newsLoading={newsLoading}
         priceLoading={priceLoading}
-        lastNewsUpdate={newsLastUpdated}
       />
-
-      {/* Ticker strip */}
       <TickerStrip watchlist={watchlist} prices={prices} />
 
-      {/* Error banner for prices */}
-      {priceError && !priceLoading && (
-        <div
-          style={{
-            background: 'rgba(248,81,73,0.1)',
-            borderBottom: '1px solid rgba(248,81,73,0.3)',
-            padding: '6px 20px',
-            fontSize: 12,
-            color: '#f85149',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            flexShrink: 0,
-          }}
-        >
-          <span>⚠</span>
-          <span>{priceError} Stock prices require the dev server proxy (run <code style={{ background: '#21262d', padding: '1px 4px', borderRadius: 3 }}>npm run dev</code>) or a CORS proxy in production.</span>
-        </div>
-      )}
-
-      {/* Main content */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          overflow: 'hidden',
-          minHeight: 0,
-        }}
-      >
-        {/* News feed — 60% */}
-        <div style={{ flex: '0 0 60%', minWidth: 0, overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+        <div style={{ flex: '0 0 62%', minWidth: 0, overflow: 'hidden' }}>
           <NewsFeed
             articles={articles}
             loading={newsLoading}
@@ -95,9 +52,7 @@ export default function App() {
             refresh={refreshNews}
           />
         </div>
-
-        {/* Watchlist — 40% */}
-        <div style={{ flex: '0 0 40%', minWidth: 280, overflow: 'hidden' }}>
+        <div style={{ flex: '0 0 38%', minWidth: 300, overflow: 'hidden' }}>
           <WatchlistPanel
             watchlist={watchlist}
             prices={prices}

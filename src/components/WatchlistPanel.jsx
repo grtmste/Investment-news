@@ -1,143 +1,221 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import AssetRow from './AssetRow';
 import { searchCrypto, isCryptoSymbol } from '../utils/cryptoApi';
 import { searchStock } from '../utils/stockApi';
 
-export default function WatchlistPanel({ watchlist, prices, priceLoading, getSparkline, addToWatchlist, removeFromWatchlist, lastUpdated }) {
-  const [query, setQuery] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState('');
+/* ── Add-symbol modal ───────────────────────────────────────── */
+function AddModal({ onClose, onAdd, existingSymbols }) {
+  const [query, setQuery]     = useState('');
+  const [searching, setSrch]  = useState(false);
+  const [error, setError]     = useState('');
+  const inputRef              = useRef(null);
 
-  const handleSearch = useCallback(async (e) => {
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  // Close on Escape
+  useEffect(() => {
+    const fn = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', fn);
+    return () => window.removeEventListener('keydown', fn);
+  }, [onClose]);
+
+  const handleSubmit = useCallback(async e => {
     e.preventDefault();
     const sym = query.trim().toUpperCase();
     if (!sym) return;
 
-    if (watchlist.some((a) => a.symbol === sym)) {
-      setSearchError(`${sym} is already in your watchlist`);
+    if (existingSymbols.includes(sym)) {
+      setError(`${sym} is already in your watchlist.`);
       return;
     }
 
-    setSearching(true);
-    setSearchError('');
+    setSrch(true);
+    setError('');
 
     try {
       let asset = null;
+
       if (isCryptoSymbol(sym)) {
         asset = await searchCrypto(sym);
       } else {
-        // Try stock first, then crypto
-        try {
-          asset = await searchStock(sym);
-        } catch {}
-        if (!asset) {
-          asset = await searchCrypto(sym);
-        }
+        try { asset = await searchStock(sym); } catch {}
+        if (!asset) asset = await searchCrypto(sym);
       }
 
       if (!asset) {
-        setSearchError(`"${sym}" not found. Check the symbol and try again.`);
+        setError(`"${sym}" not found. Check the symbol and try again.`);
       } else {
-        addToWatchlist(asset);
-        setQuery('');
-        setSearchError('');
+        onAdd(asset);
+        onClose();
       }
     } catch (err) {
-      setSearchError(`Search failed: ${err.message}`);
+      setError(`Search failed: ${err.message}`);
     } finally {
-      setSearching(false);
+      setSrch(false);
     }
-  }, [query, watchlist, addToWatchlist]);
-
-  const cryptoAssets = watchlist.filter((a) => a.type === 'crypto');
-  const stockAssets = watchlist.filter((a) => a.type === 'stock');
+  }, [query, existingSymbols, onAdd, onClose]);
 
   return (
+    /* Backdrop */
     <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        background: '#161b22',
-        borderLeft: '1px solid #30363d',
-        overflow: 'hidden',
-      }}
+      className="modal-backdrop"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      {/* Panel header */}
-      <div
-        style={{
-          padding: '12px 16px 8px',
-          borderBottom: '1px solid #30363d',
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#8b949e', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            Watchlist
-          </span>
-          {lastUpdated && (
-            <span style={{ fontSize: 10, color: '#6e7681' }}>
-              Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
+      <div className="modal-panel">
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
+              Add to Watchlist
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              Enter a stock or crypto ticker symbol
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: 'none',
+              color: 'var(--text-muted)', cursor: 'pointer',
+              fontSize: 20, lineHeight: 1, padding: 4,
+              borderRadius: 6, transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+          >
+            ×
+          </button>
         </div>
 
-        {/* Search bar */}
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: 6 }}>
+        {/* Gold divider */}
+        <div style={{ height: 1, background: 'linear-gradient(to right, var(--gold), transparent)', marginBottom: 20, opacity: 0.4 }} />
+
+        {/* Form */}
+        <form onSubmit={handleSubmit}>
           <input
+            ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => { setQuery(e.target.value); setSearchError(''); }}
-            placeholder="Add symbol (BTC, AAPL…)"
+            onChange={e => { setQuery(e.target.value); setError(''); }}
+            placeholder="e.g. AAPL, MSFT, BTC, ETH…"
             disabled={searching}
-            style={{
-              flex: 1,
-              background: '#21262d',
-              border: '1px solid #30363d',
-              borderRadius: 6,
-              padding: '6px 10px',
-              fontSize: 12,
-              color: '#e6edf3',
-              outline: 'none',
-              transition: 'border-color 0.15s',
-            }}
-            onFocus={(e) => { e.target.style.borderColor = '#58a6ff'; }}
-            onBlur={(e) => { e.target.style.borderColor = '#30363d'; }}
+            className={`input-gold${error ? ' error' : ''}`}
           />
-          <button
-            type="submit"
-            disabled={searching || !query.trim()}
-            style={{
-              background: '#238636',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 6,
-              padding: '6px 12px',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: searching || !query.trim() ? 'not-allowed' : 'pointer',
-              opacity: searching || !query.trim() ? 0.5 : 1,
-              transition: 'opacity 0.15s',
-            }}
-          >
-            {searching ? '…' : '+'}
-          </button>
-        </form>
 
-        {searchError && (
-          <div style={{ fontSize: 11, color: '#f85149', marginTop: 6 }}>{searchError}</div>
-        )}
+          {error && (
+            <div style={{
+              marginTop: 8, fontSize: 12,
+              color: 'var(--red)',
+              display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+              <span>⚠</span> {error}
+            </div>
+          )}
+
+          {/* Examples */}
+          <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {['NVDA', 'MSFT', 'BTC', 'SOL', 'DOGE'].map(ex => (
+              <button
+                key={ex}
+                type="button"
+                onClick={() => { setQuery(ex); setError(''); inputRef.current?.focus(); }}
+                style={{
+                  background: 'var(--bg-overlay)', border: '1px solid var(--border)',
+                  borderRadius: 12, padding: '2px 10px',
+                  fontSize: 10, fontWeight: 600, color: 'var(--text-muted)',
+                  cursor: 'pointer', fontFamily: 'monospace', letterSpacing: '0.04em',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+              >
+                {ex}
+              </button>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button
+              type="submit"
+              className="btn-gold"
+              disabled={searching || !query.trim()}
+            >
+              {searching ? '⏳ Searching…' : '+ Add Symbol'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main WatchlistPanel ────────────────────────────────────── */
+export default function WatchlistPanel({
+  watchlist, prices, priceLoading,
+  getSparkline, addToWatchlist, removeFromWatchlist, lastUpdated,
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const existingSymbols = watchlist.map(a => a.symbol);
+
+  const cryptoAssets = watchlist.filter(a => a.type === 'crypto');
+  const stockAssets  = watchlist.filter(a => a.type === 'stock');
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100%',
+      background: 'var(--bg-surface)',
+      borderLeft: '1px solid var(--border)',
+      boxShadow: '-1px 0 0 var(--border-glow)',
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '14px 16px 0',
+        borderBottom: '1px solid var(--border)',
+        flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div>
+            <div className="section-label" style={{ marginBottom: 2 }}>Watchlist</div>
+            {lastUpdated && (
+              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
+          </div>
+
+          {/* Add button */}
+          <button
+            onClick={() => setShowModal(true)}
+            title="Add symbol to watchlist"
+            className="btn-gold"
+            style={{ padding: '6px 14px', fontSize: 12 }}
+          >
+            + Add
+          </button>
+        </div>
+
+        {/* Gold accent line */}
+        <div style={{ height: 1, background: 'linear-gradient(to right, var(--gold), transparent)', opacity: 0.3 }} />
       </div>
 
       {/* Asset list */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
+
         {/* Crypto section */}
         {cryptoAssets.length > 0 && (
           <div>
-            <div style={{ padding: '8px 16px 4px', fontSize: 10, fontWeight: 700, color: '#3fb950', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <div style={{
+              padding: '10px 16px 6px',
+              fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
+              color: 'var(--green)', textTransform: 'uppercase',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
               Crypto
             </div>
-            {cryptoAssets.map((asset) => (
+            {cryptoAssets.map(asset => (
               <AssetRow
                 key={asset.symbol}
                 asset={asset}
@@ -153,10 +231,16 @@ export default function WatchlistPanel({ watchlist, prices, priceLoading, getSpa
         {/* Stocks section */}
         {stockAssets.length > 0 && (
           <div>
-            <div style={{ padding: '8px 16px 4px', fontSize: 10, fontWeight: 700, color: '#58a6ff', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <div style={{
+              padding: '10px 16px 6px',
+              fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
+              color: 'var(--gold)', textTransform: 'uppercase',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--gold)', display: 'inline-block' }} />
               Stocks & ETFs
             </div>
-            {stockAssets.map((asset) => (
+            {stockAssets.map(asset => (
               <AssetRow
                 key={asset.symbol}
                 asset={asset}
@@ -170,30 +254,33 @@ export default function WatchlistPanel({ watchlist, prices, priceLoading, getSpa
         )}
 
         {watchlist.length === 0 && (
-          <div style={{ padding: 24, textAlign: 'center', color: '#6e7681', fontSize: 13 }}>
-            <div style={{ fontSize: 24, marginBottom: 8 }}>📈</div>
-            <div>Your watchlist is empty.</div>
-            <div style={{ fontSize: 11, marginTop: 4 }}>Search for a symbol above to add it.</div>
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 28, marginBottom: 10 }}>📈</div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Your watchlist is empty</div>
+            <div style={{ fontSize: 11, marginTop: 6, color: 'var(--text-muted)' }}>Click + Add to get started</div>
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <div
-        style={{
-          padding: '8px 16px',
-          borderTop: '1px solid #21262d',
-          fontSize: 10,
-          color: '#6e7681',
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-        }}
-      >
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3fb950', display: 'inline-block' }} className="live-dot" />
-        <span>Prices auto-refresh every 60s • Watchlist saved to browser</span>
+      <div style={{
+        padding: '8px 16px',
+        borderTop: '1px solid var(--border)',
+        fontSize: 10, color: 'var(--text-muted)', flexShrink: 0,
+        display: 'flex', alignItems: 'center', gap: 6,
+      }}>
+        <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} className="live-dot" />
+        Prices refresh every 60s · Saved to browser
       </div>
+
+      {/* Modal */}
+      {showModal && (
+        <AddModal
+          onClose={() => setShowModal(false)}
+          onAdd={addToWatchlist}
+          existingSymbols={existingSymbols}
+        />
+      )}
     </div>
   );
 }

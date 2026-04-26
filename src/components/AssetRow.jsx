@@ -1,55 +1,67 @@
+import { useState } from 'react';
 import Sparkline from './Sparkline';
 
-function formatPrice(price) {
-  if (price == null) return '—';
+function fmtPrice(price) {
+  if (price == null) return null;
   if (price >= 10000) return '$' + price.toLocaleString('en-US', { maximumFractionDigits: 0 });
-  if (price >= 1000) return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (price >= 1) return '$' + price.toFixed(2);
-  if (price >= 0.01) return '$' + price.toFixed(4);
+  if (price >= 1000)  return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (price >= 1)     return '$' + price.toFixed(2);
+  if (price >= 0.01)  return '$' + price.toFixed(4);
   return '$' + price.toFixed(6);
 }
 
-function formatChange(change) {
-  if (change == null) return '—';
-  const sign = change >= 0 ? '+' : '';
-  return `${sign}${change.toFixed(2)}%`;
+function fmtChange(change) {
+  if (change == null) return null;
+  return `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
 }
 
 export default function AssetRow({ asset, priceData, sparklineData, onRemove, globalLoading }) {
+  const [hovered, setHovered] = useState(false);
   const { symbol, type } = asset;
-  const positive = (priceData?.change24h ?? 0) >= 0;
-  const changeColor = priceData ? (positive ? '#3fb950' : '#f85149') : '#6e7681';
-  const hasData = Boolean(priceData?.price);
-  const showLoading = globalLoading && !hasData;
+  const positive  = (priceData?.change24h ?? 0) >= 0;
+  const hasPrice  = priceData?.price != null;
+  const changeStr = hasPrice ? fmtChange(priceData.change24h) : null;
+  const priceStr  = hasPrice ? fmtPrice(priceData.price) : null;
+  const changeColor = hasPrice ? (positive ? 'var(--green)' : 'var(--red)') : 'var(--text-muted)';
 
   return (
     <div
-      className="flex items-center gap-2 px-3 py-2.5 group transition-colors cursor-default"
-      style={{ borderBottom: '1px solid #21262d' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 16px',
+        borderBottom: '1px solid var(--border)',
+        background: hovered ? 'var(--bg-hover)' : 'transparent',
+        transition: 'background 0.15s ease',
+        cursor: 'default',
+      }}
     >
-      {/* Symbol & name */}
+      {/* Live dot */}
+      <div style={{
+        width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+        background: hasPrice ? (positive ? 'var(--green)' : 'var(--red)') : 'var(--text-muted)',
+        opacity: hasPrice ? 1 : 0.3,
+      }} />
+
+      {/* Symbol + type */}
       <div style={{ flex: '1 1 0', minWidth: 0 }}>
-        <div className="flex items-center gap-1.5">
-          <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 13, color: '#e6edf3' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'monospace', letterSpacing: '0.04em' }}>
             {symbol}
           </span>
-          <span
-            style={{
-              fontSize: 9,
-              padding: '1px 5px',
-              borderRadius: 3,
-              fontWeight: 600,
-              letterSpacing: '0.05em',
-              ...(type === 'crypto'
-                ? { background: 'rgba(63,185,80,0.15)', color: '#3fb950' }
-                : { background: 'rgba(88,166,255,0.15)', color: '#58a6ff' }),
-            }}
-          >
+          <span style={{
+            fontSize: 8, fontWeight: 800, letterSpacing: '0.08em',
+            padding: '1px 6px', borderRadius: 12,
+            ...(type === 'crypto'
+              ? { background: 'rgba(46,204,113,0.12)', color: 'var(--green)' }
+              : { background: 'var(--gold-glow)', color: 'var(--gold)' }),
+          }}>
             {type === 'crypto' ? 'CRYPTO' : 'STOCK'}
           </span>
         </div>
         {priceData?.name && (
-          <div style={{ fontSize: 11, color: '#6e7681', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {priceData.name}
           </div>
         )}
@@ -57,47 +69,43 @@ export default function AssetRow({ asset, priceData, sparklineData, onRemove, gl
 
       {/* Sparkline */}
       <div style={{ flexShrink: 0 }}>
-        <Sparkline data={sparklineData} positive={positive} width={72} height={28} />
+        <Sparkline data={sparklineData} positive={positive} width={68} height={26} />
       </div>
 
-      {/* Price & change */}
-      <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 80 }}>
-        <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, color: '#e6edf3' }}>
-          {hasData
-            ? formatPrice(priceData.price)
-            : showLoading
-            ? <span style={{ color: '#6e7681', fontSize: 11 }}>loading…</span>
-            : <span style={{ color: '#6e7681', fontSize: 11 }}>N/A</span>
-          }
-        </div>
-        <div style={{ fontFamily: 'monospace', fontSize: 11, color: changeColor }}>
-          {hasData ? formatChange(priceData.change24h) : '—'}
-        </div>
+      {/* Price + change */}
+      <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 82 }}>
+        {priceStr ? (
+          <>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'monospace' }}>
+              {priceStr}
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: changeColor, fontFamily: 'monospace' }}>
+              {changeStr}
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            {globalLoading ? 'loading…' : 'N/A'}
+          </div>
+        )}
       </div>
 
-      {/* Remove */}
+      {/* Delete button */}
       <button
-        onClick={() => onRemove(symbol)}
+        onClick={e => { e.stopPropagation(); onRemove(symbol); }}
         title="Remove from watchlist"
         style={{
           flexShrink: 0,
-          width: 20,
-          height: 20,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: 4,
-          border: 'none',
-          background: 'none',
+          width: 22, height: 22,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: '50%',
+          border: `1px solid ${hovered ? 'var(--red)30' : 'transparent'}`,
+          background: hovered ? 'rgba(231,76,60,0.1)' : 'transparent',
           cursor: 'pointer',
-          color: '#6e7681',
-          fontSize: 16,
-          opacity: 0,
-          transition: 'opacity 0.15s, color 0.15s',
+          color: hovered ? 'var(--red)' : 'transparent',
+          fontSize: 14, lineHeight: 1,
+          transition: 'all 0.2s ease',
         }}
-        className="group-hover:opacity-100"
-        onMouseEnter={(e) => { e.currentTarget.style.color = '#f85149'; e.currentTarget.style.opacity = '1'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = '#6e7681'; }}
       >
         ×
       </button>

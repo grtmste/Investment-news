@@ -3,23 +3,25 @@ import NewsCard from './NewsCard';
 import { NEWS_SOURCES } from '../utils/constants';
 
 const TABS = [
-  { id: 'all', label: 'All News' },
+  { id: 'all',    label: 'All News' },
   { id: 'stocks', label: 'Stocks & Investing' },
   { id: 'crypto', label: 'Crypto' },
-  { id: 'ark', label: 'ARK Invest' },
+  { id: 'ark',    label: 'ARK Invest' },
 ];
-
-const SKELETON_COUNT = 8;
 
 function SkeletonCard() {
   return (
-    <div style={{ display: 'flex', gap: 12, padding: '12px 16px', borderBottom: '1px solid #21262d' }}>
-      <div className="skeleton" style={{ width: 72, height: 48, borderRadius: 6, flexShrink: 0 }} />
-      <div style={{ flex: 1 }}>
-        <div className="skeleton" style={{ height: 10, width: '40%', marginBottom: 8 }} />
-        <div className="skeleton" style={{ height: 13, width: '90%', marginBottom: 6 }} />
-        <div className="skeleton" style={{ height: 13, width: '70%', marginBottom: 8 }} />
-        <div className="skeleton" style={{ height: 11, width: '85%' }} />
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+      <div className="skeleton" style={{ height: 148 }} />
+      <div style={{ padding: '12px 14px' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <div className="skeleton" style={{ height: 10, width: 60 }} />
+          <div className="skeleton" style={{ height: 10, width: 40 }} />
+        </div>
+        <div className="skeleton" style={{ height: 13, width: '95%', marginBottom: 6 }} />
+        <div className="skeleton" style={{ height: 13, width: '75%', marginBottom: 10 }} />
+        <div className="skeleton" style={{ height: 11, width: '90%', marginBottom: 4 }} />
+        <div className="skeleton" style={{ height: 11, width: '60%' }} />
       </div>
     </div>
   );
@@ -28,52 +30,44 @@ function SkeletonCard() {
 export default function NewsFeed({ articles, loading, lastUpdated, sourceStatus, refresh }) {
   const [activeTab, setActiveTab] = useState('all');
 
-  const filtered = useMemo(() => {
-    if (activeTab === 'all') return articles;
-    return articles.filter((a) => a.category === activeTab);
-  }, [articles, activeTab]);
+  const filtered = useMemo(() =>
+    activeTab === 'all' ? articles : articles.filter(a => a.category === activeTab),
+    [articles, activeTab]
+  );
 
-  const failedCount = Object.values(sourceStatus).filter((s) => s === 'error').length;
-  const totalSources = NEWS_SOURCES.length;
+  const failedCount = Object.values(sourceStatus).filter(s => s === 'error').length;
+  const total = NEWS_SOURCES.length;
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        background: '#0d1117',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: '10px 16px 0',
-          borderBottom: '1px solid #30363d',
-          flexShrink: 0,
-          background: '#161b22',
-        }}
-      >
+    <div style={{
+      display: 'flex', flexDirection: 'column',
+      height: '100%', background: 'var(--bg-base)', overflow: 'hidden',
+    }}>
+      {/* Panel header */}
+      <div style={{
+        background: 'var(--bg-surface)',
+        borderBottom: '1px solid var(--border)',
+        boxShadow: '0 1px 0 var(--border-glow)',
+        flexShrink: 0,
+        padding: '10px 20px 0',
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#8b949e', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              News Feed
-            </span>
-            {!loading && articles.length > 0 && (
-              <span style={{ fontSize: 11, color: '#6e7681' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className="section-label">News Feed</span>
+            {!loading && filtered.length > 0 && (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 {filtered.length.toLocaleString()} articles
+              </span>
+            )}
+            {failedCount > 0 && !loading && (
+              <span style={{ fontSize: 10, color: '#D29922' }} title={`${failedCount} of ${total} sources unavailable`}>
+                ⚠ {failedCount}/{total} sources
               </span>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {failedCount > 0 && !loading && (
-              <span style={{ fontSize: 10, color: '#d29922' }} title={`${failedCount} of ${totalSources} sources failed to load`}>
-                ⚠ {failedCount}/{totalSources} sources
-              </span>
-            )}
             {lastUpdated && (
-              <span style={{ fontSize: 10, color: '#6e7681' }}>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
                 {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -81,57 +75,41 @@ export default function NewsFeed({ articles, loading, lastUpdated, sourceStatus,
               onClick={refresh}
               disabled={loading}
               style={{
-                background: 'none',
-                border: '1px solid #30363d',
-                borderRadius: 5,
-                padding: '3px 8px',
-                fontSize: 11,
-                color: loading ? '#6e7681' : '#8b949e',
+                background: 'none', border: '1px solid var(--border)',
+                borderRadius: 20, padding: '3px 10px',
+                fontSize: 10, fontWeight: 600,
+                color: loading ? 'var(--text-muted)' : 'var(--text-secondary)',
                 cursor: loading ? 'not-allowed' : 'pointer',
-                transition: 'all 0.15s',
+                letterSpacing: '0.04em',
+                transition: 'all 0.2s ease',
+                fontFamily: 'Inter, sans-serif',
               }}
-              onMouseEnter={(e) => { if (!loading) { e.currentTarget.style.borderColor = '#58a6ff'; e.currentTarget.style.color = '#58a6ff'; }}}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#30363d'; e.currentTarget.style.color = '#8b949e'; }}
+              onMouseEnter={e => { if (!loading) { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)'; }}}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
             >
               {loading ? '↻ Loading…' : '↻ Refresh'}
             </button>
           </div>
         </div>
 
-        {/* Filter tabs */}
-        <div style={{ display: 'flex', gap: 0 }}>
-          {TABS.map((tab) => {
-            const count = tab.id === 'all' ? articles.length : articles.filter((a) => a.category === tab.id).length;
-            const isActive = activeTab === tab.id;
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 0, marginLeft: -4 }}>
+          {TABS.map(tab => {
+            const count = tab.id === 'all' ? articles.length : articles.filter(a => a.category === tab.id).length;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: isActive ? '2px solid #58a6ff' : '2px solid transparent',
-                  padding: '6px 12px',
-                  fontSize: 12,
-                  fontWeight: isActive ? 600 : 400,
-                  color: isActive ? '#e6edf3' : '#8b949e',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  whiteSpace: 'nowrap',
-                }}
+                className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
               >
                 {tab.label}
                 {count > 0 && (
-                  <span
-                    style={{
-                      marginLeft: 5,
-                      fontSize: 10,
-                      padding: '1px 5px',
-                      borderRadius: 10,
-                      background: isActive ? 'rgba(88,166,255,0.2)' : '#21262d',
-                      color: isActive ? '#58a6ff' : '#6e7681',
-                    }}
-                  >
+                  <span style={{
+                    marginLeft: 5, fontSize: 9, padding: '1px 5px', borderRadius: 10,
+                    background: activeTab === tab.id ? 'var(--gold-glow)' : 'var(--bg-overlay)',
+                    color: activeTab === tab.id ? 'var(--gold)' : 'var(--text-muted)',
+                    fontWeight: 700,
+                  }}>
                     {count}
                   </span>
                 )}
@@ -141,42 +119,39 @@ export default function NewsFeed({ articles, loading, lastUpdated, sourceStatus,
         </div>
       </div>
 
-      {/* Article list */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      {/* Article grid */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', position: 'relative' }}>
         {loading ? (
-          Array.from({ length: SKELETON_COUNT }).map((_, i) => <SkeletonCard key={i} />)
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
         ) : filtered.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: '#6e7681' }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📰</div>
-            <div style={{ fontSize: 14 }}>No articles found</div>
-            {failedCount === totalSources && (
-              <div style={{ fontSize: 12, marginTop: 8, color: '#d29922' }}>
+          <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>📰</div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 6 }}>No articles found</div>
+            {failedCount === total && (
+              <div style={{ fontSize: 12, color: '#D29922', marginTop: 4 }}>
                 All news sources failed to load. Check your connection.
               </div>
             )}
           </div>
         ) : (
-          filtered.map((article) => (
-            <NewsCard key={article.id} article={article} />
-          ))
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+            {filtered.map(article => (
+              <NewsCard key={article.id} article={article} />
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Auto-refresh notice */}
+      {/* Footer */}
       {!loading && (
-        <div
-          style={{
-            padding: '6px 16px',
-            borderTop: '1px solid #21262d',
-            fontSize: 10,
-            color: '#6e7681',
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#58a6ff', display: 'inline-block' }} className="live-dot" />
+        <div style={{
+          padding: '6px 20px', borderTop: '1px solid var(--border)',
+          fontSize: 10, color: 'var(--text-muted)', flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--gold)', display: 'inline-block' }} className="live-dot" />
           Auto-refreshes every 15 minutes
         </div>
       )}
