@@ -1,24 +1,29 @@
-// Fetches RSS directly via CORS proxy and parses XML in the browser.
-// No third-party RSS-to-JSON service dependency.
+async function fetchXml(rssUrl) {
+  if (import.meta.env.DEV) {
+    // Vite dev server fetches server-side — no CORS restrictions
+    const res = await fetch(`/api/rss?url=${encodeURIComponent(rssUrl)}`, {
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) throw new Error(`RSS proxy HTTP ${res.status}`);
+    return res.text();
+  }
 
-const PROXY_ALLORIGINS = (url) =>
-  `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-
-const PROXY_CORSPROXY = (url) =>
-  `https://corsproxy.io/?${encodeURIComponent(url)}`;
-
-async function fetchXml(url) {
-  // Try allorigins first — returns { contents: "<xml...>" }
+  // Production: try allorigins then corsproxy
   try {
-    const res = await fetch(PROXY_ALLORIGINS(url), { signal: AbortSignal.timeout(12000) });
+    const res = await fetch(
+      `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`,
+      { signal: AbortSignal.timeout(12000) }
+    );
     if (res.ok) {
       const data = await res.json();
       if (data.contents && data.contents.trim().length > 50) return data.contents;
     }
   } catch {}
 
-  // Fall back to corsproxy.io — returns raw content
-  const res = await fetch(PROXY_CORSPROXY(url), { signal: AbortSignal.timeout(12000) });
+  const res = await fetch(
+    `https://corsproxy.io/?${encodeURIComponent(rssUrl)}`,
+    { signal: AbortSignal.timeout(12000) }
+  );
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
 }
@@ -32,17 +37,15 @@ function parseRssXml(xmlStr, count) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlStr, 'text/xml');
 
-  if (doc.querySelector('parsererror')) {
-    throw new Error('XML parse error');
-  }
+  if (doc.querySelector('parsererror')) throw new Error('XML parse error');
 
-  // Support RSS <item> and Atom <entry>
+  // Support both RSS <item> and Atom <entry>
   const items = [
     ...Array.from(doc.querySelectorAll('item')),
     ...Array.from(doc.querySelectorAll('entry')),
   ].slice(0, count);
 
-  if (!items.length) throw new Error('No feed items found');
+  if (!items.length) throw new Error('No feed items');
 
   return items
     .map((item) => {
@@ -59,10 +62,9 @@ function parseRssXml(xmlStr, count) {
         nodeText(item, 'content\\:encoded') ||
         nodeText(item, 'content');
       const guid = nodeText(item, 'guid') || nodeText(item, 'id');
-      const enclosure = item.querySelector('enclosure[type^="image"]');
       const mediaThumb =
-        item.querySelector('media\\:thumbnail') ||
-        item.querySelector('thumbnail');
+        item.querySelector('media\\:thumbnail') || item.querySelector('thumbnail');
+      const enclosure = item.querySelector('enclosure[type^="image"]');
 
       return {
         id: guid || link || title,
@@ -76,22 +78,17 @@ function parseRssXml(xmlStr, count) {
           extractFirstImage(description),
       };
     })
-    .filter((item) => item.url && item.title);
+    .filter((a) => a.url && a.title);
 }
 
 function nodeText(parent, tag) {
-  return (
-    parent.getElementsByTagName(tag)[0]?.textContent?.trim() || ''
-  );
+  return parent.getElementsByTagName(tag)[0]?.textContent?.trim() || '';
 }
 
 function rssLink(item) {
-  // Atom uses <link href="..."/>, RSS uses <link>url</link>
-  const linkEl = item.querySelector('link');
-  if (!linkEl) return '';
-  return (
-    linkEl.getAttribute('href') || linkEl.textContent?.trim() || ''
-  );
+  const el = item.querySelector('link');
+  if (!el) return '';
+  return el.getAttribute('href') || el.textContent?.trim() || '';
 }
 
 function cleanText(html) {
