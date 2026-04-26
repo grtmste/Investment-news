@@ -1,35 +1,12 @@
-async function fetchXml(rssUrl) {
-  if (import.meta.env.DEV) {
-    // Vite dev server fetches server-side — no CORS restrictions
-    const res = await fetch(`/api/rss?url=${encodeURIComponent(rssUrl)}`, {
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!res.ok) throw new Error(`RSS proxy HTTP ${res.status}`);
-    return res.text();
-  }
-
-  // Production: try allorigins then corsproxy
-  try {
-    const res = await fetch(
-      `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`,
-      { signal: AbortSignal.timeout(12000) }
-    );
-    if (res.ok) {
-      const data = await res.json();
-      if (data.contents && data.contents.trim().length > 50) return data.contents;
-    }
-  } catch {}
-
-  const res = await fetch(
-    `https://corsproxy.io/?${encodeURIComponent(rssUrl)}`,
-    { signal: AbortSignal.timeout(12000) }
-  );
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.text();
-}
+// Fetches RSS via /api/rss (Vite plugin in dev, Vercel function in prod).
+// Browser never touches external domains directly.
 
 export async function fetchRssFeed(rssUrl, count = 20) {
-  const xml = await fetchXml(rssUrl);
+  const res = await fetch(`/api/rss?url=${encodeURIComponent(rssUrl)}`, {
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!res.ok) throw new Error(`RSS proxy HTTP ${res.status}`);
+  const xml = await res.text();
   return parseRssXml(xml, count);
 }
 
@@ -39,7 +16,6 @@ function parseRssXml(xmlStr, count) {
 
   if (doc.querySelector('parsererror')) throw new Error('XML parse error');
 
-  // Support both RSS <item> and Atom <entry>
   const items = [
     ...Array.from(doc.querySelectorAll('item')),
     ...Array.from(doc.querySelectorAll('entry')),

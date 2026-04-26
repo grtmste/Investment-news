@@ -1,32 +1,16 @@
-// Stock data via Vite dev server proxy (server-side fetch, no CORS issues).
-// Production fallback: allorigins.win CORS proxy.
-
-async function devFetch(path) {
-  const res = await fetch(path, { signal: AbortSignal.timeout(10000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
-
-async function prodYahooFetch(yahooUrl) {
-  const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`;
-  const res = await fetch(proxy, { signal: AbortSignal.timeout(12000) });
-  if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
-  const wrapper = await res.json();
-  return JSON.parse(wrapper.contents);
-}
+// Stock data via /api/stock and /api/stock-chart.
+// In dev: handled by Vite configureServer plugin.
+// In prod: handled by Vercel serverless functions.
 
 export async function fetchStockPrices(symbols) {
   if (!symbols.length) return {};
 
-  let data;
-  if (import.meta.env.DEV) {
-    data = await devFetch(`/api/stock?symbols=${symbols.join(',')}`);
-  } else {
-    data = await prodYahooFetch(
-      `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(',')}`
-    );
-  }
+  const res = await fetch(`/api/stock?symbols=${symbols.join(',')}`, {
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!res.ok) throw new Error(`Stock API HTTP ${res.status}`);
 
+  const data = await res.json();
   const result = {};
   for (const quote of data.quoteResponse?.result || []) {
     result[quote.symbol] = {
@@ -40,14 +24,11 @@ export async function fetchStockPrices(symbols) {
 
 export async function fetchStockSparkline(symbol) {
   try {
-    let data;
-    if (import.meta.env.DEV) {
-      data = await devFetch(`/api/stock-chart?symbol=${symbol}`);
-    } else {
-      data = await prodYahooFetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=7d`
-      );
-    }
+    const res = await fetch(`/api/stock-chart?symbol=${symbol}`, {
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
     return data.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
   } catch {
     return [];
@@ -57,14 +38,11 @@ export async function fetchStockSparkline(symbol) {
 export async function searchStock(query) {
   const symbol = query.toUpperCase().trim();
   try {
-    let data;
-    if (import.meta.env.DEV) {
-      data = await devFetch(`/api/stock?symbols=${symbol}`);
-    } else {
-      data = await prodYahooFetch(
-        `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`
-      );
-    }
+    const res = await fetch(`/api/stock?symbols=${symbol}`, {
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
     const quote = data.quoteResponse?.result?.[0];
     if (!quote) return null;
     return { symbol: quote.symbol, type: 'stock', name: quote.shortName || quote.symbol };
